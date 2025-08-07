@@ -1,8 +1,8 @@
 <?php
-$servername = "127.0.0.1";
-$username = "u878574291_ccs1";
-$password = "CCSPseudocode01";
-$dbname = "u878574291_ccs";
+$servername = "localhost"; // or 127.0.0.1
+$username = "root";        // default XAMPP username
+$password = "";            // default XAMPP password is empty
+$database = "voting";         // make sure this DB exists in phpMyAdmin
 
 $conn = new mysqli($servername, $username, $password, $dbname);
 

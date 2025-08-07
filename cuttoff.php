@@ -1,105 +1,94 @@
 <?php
-// Enable error reporting for debugging
-error_reporting(E_ALL);
-ini_set('display_errors', 1);
+// Database connection for XAMPP (local development)
+$servername = "localhost";
+$username = "root";
+$password = "";
+$database = "voting";
 
-// Database connection parameters
-$servername = "127.0.0.1";
-$username = "u878574291_ccs1";
-$password = "CCSPseudocode01";
-$database = "u878574291_ccs";
-
-// Create connection
 $conn = new mysqli($servername, $username, $password, $database);
-
-// Check connection
 if ($conn->connect_error) {
-    die("<div class='error-message'>Database connection failed: " . $conn->connect_error . "</div>");
+    die("Connection failed: " . $conn->connect_error);
 }
 
+// Initialize notification variables
+$notification_type = '';
+$notification_message = '';
+
 // Fetch existing election data
-$result = $conn->query("SELECT * FROM election LIMIT 1");
-$existingElection = $result->fetch_assoc();
+$result = $conn->query("SELECT * FROM elections LIMIT 1");
+$existingElection = $result ? $result->fetch_assoc() : null;
 
 // Handle delete request
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST["delete"])) {
-    $conn->query("DELETE FROM election");
-    echo "<script>
-        document.addEventListener('DOMContentLoaded', function() {
-            showNotification('success', 'Election deleted successfully!');
-            setTimeout(function() { window.location.href='cuttoff.php'; }, 2000);
-        });
-    </script>";
+    if ($conn->query("DELETE FROM elections")) {
+        $notification_type = 'success';
+        $notification_message = 'Election deleted successfully!';
+        $existingElection = null;
+    } else {
+        $notification_type = 'error';
+        $notification_message = 'Error deleting election: ' . $conn->error;
+    }
 }
 
 // Handle enable/disable toggle
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST["toggle_enable"])) {
-    $newEnable = $existingElection['enable'] == 1 ? 0 : 1;
-    $conn->query("UPDATE election SET enable = $newEnable WHERE 1");
-    $statusMessage = $newEnable == 1 ? "Election has been enabled!" : "Election has been disabled!";
-    echo "<script>
-        document.addEventListener('DOMContentLoaded', function() {
-            showNotification('success', '$statusMessage');
-            setTimeout(function() { window.location.href='cuttoff.php'; }, 2000);
-        });
-    </script>";
+    if ($existingElection) {
+        $newEnable = $existingElection['enable'] == 1 ? 0 : 1;
+        if ($conn->query("UPDATE elections SET enable = $newEnable WHERE id = " . $existingElection['id'])) {
+            $notification_type = 'success';
+            $notification_message = $newEnable == 1 ? "Election has been enabled!" : "Election has been disabled!";
+            $existingElection['enable'] = $newEnable;
+        } else {
+            $notification_type = 'error';
+            $notification_message = 'Error updating status: ' . $conn->error;
+        }
+    }
 }
 
 // Handle add or update request
-if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST["start_time"])) {
-    $start_time = $_POST['start_time'];
-    $end_time = $_POST['end_time'];
-    $date = $_POST['date'];
+if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST["start_date"])) {
+    $title = $_POST['title'];
+    $description = $_POST['description'];
+    $start_date = $_POST['start_date'];
+    $end_date = $_POST['end_date'];
 
-    if (empty($start_time) || empty($end_time) || empty($date)) {
-        echo "<script>
-            document.addEventListener('DOMContentLoaded', function() {
-                showNotification('error', 'All fields are required!');
-            });
-        </script>";
+    if (empty($title) || empty($start_date) || empty($end_date)) {
+        $notification_type = 'error';
+        $notification_message = 'Title, Start Date, and End Date are required!';
     } else {
         if ($existingElection) {
-            // Update existing election
-            $stmt = $conn->prepare("UPDATE election SET start_time = ?, end_time = ?, date = ? WHERE 1");
+            $stmt = $conn->prepare("UPDATE elections SET title = ?, description = ?, start_date = ?, end_date = ? WHERE id = ?");
             $successMessage = "Election updated successfully!";
         } else {
-            // Insert new election
-            $stmt = $conn->prepare("INSERT INTO election (start_time, end_time, enable, date) VALUES (?, ?, 0, ?)");
+            $stmt = $conn->prepare("INSERT INTO elections (title, description, start_date, end_date, enable) VALUES (?, ?, ?, ?, 0)");
             $successMessage = "Election created successfully!";
         }
-
         if (!$stmt) {
-            echo "<script>
-                document.addEventListener('DOMContentLoaded', function() {
-                    showNotification('error', 'Database error: " . $conn->error . "');
-                });
-            </script>";
+            $notification_type = 'error';
+            $notification_message = 'Database error: ' . $conn->error;
         } else {
-            $stmt->bind_param("sss", $start_time, $end_time, $date);
-            
-            if ($stmt->execute()) {
-                echo "<script>
-                    document.addEventListener('DOMContentLoaded', function() {
-                        showNotification('success', '$successMessage');
-                        setTimeout(function() { window.location.href='cuttoff.php'; }, 2000);
-                    });
-                </script>";
+            if ($existingElection) {
+                $stmt->bind_param("ssssi", $title, $description, $start_date, $end_date, $existingElection['id']);
             } else {
-                echo "<script>
-                    document.addEventListener('DOMContentLoaded', function() {
-                        showNotification('error', 'Error updating/inserting record: " . $stmt->error . "');
-                    });
-                </script>";
+                $stmt->bind_param("ssss", $title, $description, $start_date, $end_date);
+            }
+            if ($stmt->execute()) {
+                $notification_type = 'success';
+                $notification_message = $successMessage;
+                // Refresh election data
+                $result = $conn->query("SELECT * FROM elections LIMIT 1");
+                $existingElection = $result ? $result->fetch_assoc() : null;
+            } else {
+                $notification_type = 'error';
+                $notification_message = 'Error updating/inserting record: ' . $stmt->error;
             }
             $stmt->close();
         }
     }
 }
 
-// Close the database connection
 $conn->close();
 ?>
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -399,23 +388,30 @@ $conn->close();
                 <h3><i class="fas fa-info-circle"></i> Current Election Details</h3>
                 
                 <div class="info-item">
-                    <div class="info-label">Start Time:</div>
+                    <div class="info-label">Title:</div>
                     <div class="info-value">
-                        <i class="far fa-clock"></i> <?= htmlspecialchars($existingElection['start_time']) ?>
+                        <i class="fas fa-heading"></i> <?= htmlspecialchars($existingElection['title']) ?>
                     </div>
                 </div>
                 
                 <div class="info-item">
-                    <div class="info-label">End Time:</div>
+                    <div class="info-label">Description:</div>
                     <div class="info-value">
-                        <i class="far fa-clock"></i> <?= htmlspecialchars($existingElection['end_time']) ?>
+                        <i class="fas fa-info-circle"></i> <?= htmlspecialchars($existingElection['description']) ?>
                     </div>
                 </div>
                 
                 <div class="info-item">
-                    <div class="info-label">Date:</div>
+                    <div class="info-label">Start Date:</div>
                     <div class="info-value">
-                        <i class="far fa-calendar"></i> <?= htmlspecialchars($existingElection['date']) ?>
+                        <i class="far fa-calendar"></i> <?= htmlspecialchars($existingElection['start_date']) ?>
+                    </div>
+                </div>
+                
+                <div class="info-item">
+                    <div class="info-label">End Date:</div>
+                    <div class="info-value">
+                        <i class="far fa-calendar"></i> <?= htmlspecialchars($existingElection['end_date']) ?>
                     </div>
                 </div>
                 
@@ -436,18 +432,23 @@ $conn->close();
                     <h3><i class="fas fa-edit"></i> Update Election</h3>
                     <form action="cuttoff.php" method="POST">
                         <div class="input-group">
-                            <label class="input-label">Start Time</label>
-                            <input type="datetime-local" name="start_time" value="<?= htmlspecialchars($existingElection['start_time']) ?>" class="form-control" required>
+                            <label class="input-label">Title</label>
+                            <input type="text" name="title" value="<?= htmlspecialchars($existingElection['title']) ?>" class="form-control" required>
                         </div>
                         
                         <div class="input-group">
-                            <label class="input-label">End Time</label>
-                            <input type="datetime-local" name="end_time" value="<?= htmlspecialchars($existingElection['end_time']) ?>" class="form-control" required>
+                            <label class="input-label">Description</label>
+                            <textarea name="description" class="form-control" rows="3"><?= htmlspecialchars($existingElection['description']) ?></textarea>
                         </div>
                         
                         <div class="input-group">
-                            <label class="input-label">Date</label>
-                            <input type="date" name="date" value="<?= htmlspecialchars($existingElection['date']) ?>" class="form-control" required>
+                            <label class="input-label">Start Date</label>
+                            <input type="date" name="start_date" value="<?= htmlspecialchars($existingElection['start_date']) ?>" class="form-control" required>
+                        </div>
+                        
+                        <div class="input-group">
+                            <label class="input-label">End Date</label>
+                            <input type="date" name="end_date" value="<?= htmlspecialchars($existingElection['end_date']) ?>" class="form-control" required>
                         </div>
                         
                         <button type="submit" class="btn btn-primary">
@@ -496,18 +497,23 @@ $conn->close();
                 <h3><i class="fas fa-plus-circle"></i> Add New Election</h3>
                 <form action="cuttoff.php" method="POST">
                     <div class="input-group">
-                        <label class="input-label">Start Time</label>
-                        <input type="datetime-local" name="start_time" class="form-control" required>
+                        <label class="input-label">Title</label>
+                        <input type="text" name="title" class="form-control" required>
                     </div>
                     
                     <div class="input-group">
-                        <label class="input-label">End Time</label>
-                        <input type="datetime-local" name="end_time" class="form-control" required>
+                        <label class="input-label">Description</label>
+                        <textarea name="description" class="form-control" rows="3"></textarea>
                     </div>
                     
                     <div class="input-group">
-                        <label class="input-label">Date</label>
-                        <input type="date" name="date" class="form-control" required>
+                        <label class="input-label">Start Date</label>
+                        <input type="date" name="start_date" class="form-control" required>
+                    </div>
+                    
+                    <div class="input-group">
+                        <label class="input-label">End Date</label>
+                        <input type="date" name="end_date" class="form-control" required>
                     </div>
                     
                     <button type="submit" class="btn btn-success">
@@ -519,35 +525,23 @@ $conn->close();
     </div>
 </div>
 
-<!-- Success Notification -->
-<div id="notification-success" class="notification notification-success">
-    <i class="fas fa-check-circle"></i> <span id="success-message">Operation completed successfully!</span>
-</div>
-
-<!-- Error Notification -->
-<div id="notification-error" class="notification notification-error">
-    <i class="fas fa-exclamation-circle"></i> <span id="error-message">An error occurred.</span>
-</div>
+<!-- Notification (hidden by default, shown only if needed) -->
+<?php if ($notification_type && $notification_message): ?>
+    <div id="notification-<?= $notification_type ?>" class="notification notification-<?= $notification_type ?> show">
+        <i class="fas fa-<?= $notification_type == 'success' ? 'check-circle' : 'exclamation-circle' ?>"></i>
+        <span><?= htmlspecialchars($notification_message) ?></span>
+    </div>
+<?php endif; ?>
 
 <script>
     function confirmDelete() {
         return confirm("Are you sure you want to delete this election? This action cannot be undone.");
     }
-    
-    function showNotification(type, message) {
-        const element = document.getElementById('notification-' + type);
-        const messageElement = document.getElementById(type + '-message');
-        
-        if (messageElement) {
-            messageElement.textContent = message;
-        }
-        
-        element.classList.add('show');
-        
-        setTimeout(function() {
-            element.classList.remove('show');
-        }, 5000);
-    }
+    // Hide notification after 5 seconds
+    setTimeout(function() {
+        var notif = document.querySelector('.notification.show');
+        if (notif) notif.classList.remove('show');
+    }, 5000);
 </script>
 
 </body>

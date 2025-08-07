@@ -1,10 +1,10 @@
 <?php
 session_start();
 // Database connection
-$servername = "127.0.0.1";
-$username = "u878574291_ccs1";
-$password = "CCSPseudocode01";
-$database = "u878574291_ccs";
+$servername = "localhost"; // or 127.0.0.1
+$username = "root";        // default XAMPP username
+$password = "";            // default XAMPP password is empty
+$database = "voting";         // make sure this DB exists in phpMyAdmin
 
 $conn = new mysqli($servername, $username, $password, $database);
 
@@ -17,37 +17,28 @@ date_default_timezone_set('Asia/Manila');
 $error_message = "";
 
 // Fetch election details
-$election_query = "SELECT * FROM election LIMIT 1"; // Assuming only one election is active at a time
+$election_query = "SELECT * FROM elections LIMIT 1";
 $election_result = $conn->query($election_query);
 
-if ($election_result->num_rows > 0) {
+if ($election_result && $election_result->num_rows > 0) {
     $election = $election_result->fetch_assoc();
-    $start_time = strtotime($election['start_time']);
-    $end_time = strtotime($election['end_time']);
-    $enable = $election['enable'];
-    $date = $election['date'];
+    $start_time = strtotime($election['start_date']);
+    $end_time = strtotime($election['end_date']);
+    $enable = isset($election['enable']) ? $election['enable'] : 0;
     $current_time = time();
-    $current_date = date('Y-m-d');
 
-    // Debugging: Check the value of $enable
-    echo "<!-- Debug: enable = $enable -->";
-
-    // Check if the election is enabled and the current time is within the election period
+    // Election logic using $start_time, $end_time, $enable, $current_time
     if ($enable == 0) {
-    $error_message = "The election is disabled.";
-    } elseif ($current_date < $date) {
-    $error_message = "The election has not started yet."; // Future date
-    } elseif ($current_date == $date) {
-    if ($current_time < $start_time) {
-        $error_message = "The election has not started yet."; // Before start time
+        $error_message = "The election is disabled.";
+    } elseif ($current_time < $start_time) {
+        $error_message = "The election has not started yet.";
     } elseif ($current_time > $end_time) {
-        $error_message = "The election has ended."; // After end time
+        $error_message = "The election has ended.";
     }
-    } elseif ($current_date > $date) {
-    $error_message = "The election has ended."; // Past date
-    } else {
+} else if ($election_result === false) {
+    $error_message = "Database error: " . $conn->error;
+} else {
     $error_message = "No election found.";
-    }
 }
 
 // Handling form submission
@@ -278,7 +269,7 @@ $conn->close();
     <!-- Navigation Bar -->
     <div class="navbar">
         <div class="logo-container">
-            <img src="ccsvoting/ccs.png" alt="Logo">
+            <img src="images/ccs.png" alt="Logo">
             <span class="logo-text">CCS PSEUDOCODE.COM SOCIETY</span>
         </div>
         <div class="nav-buttons">
@@ -296,8 +287,7 @@ $conn->close();
             <button 
     class="vote-button" 
     <?php 
-            if ($enable == 0 || $current_date < $date || $current_date > $date || 
-                ($current_date == $date && ($current_time < $start_time || $current_time > $end_time))) {
+            if ($enable == 0 || $current_time < $start_time || $current_time > $end_time) {
                 echo 'disabled="disabled"';
             }
             ?>
@@ -311,7 +301,7 @@ $conn->close();
             <?php endif; ?>
         </div>
         <div class="hero-illustration">
-            <img src="ccsvoting/123.png" alt="Illustration of voting system">
+            <img src="images/123.png" alt="Illustration of voting system">
         </div>
     </div>
 

@@ -2,14 +2,14 @@
 session_start();
 
 // Database connection details
-$servername = "127.0.0.1";
-$username = "u878574291_ccs1";
-$password = "CCSPseudocode01";
-$dbname = "u878574291_ccs";
+$servername = "localhost"; // or 127.0.0.1
+$username = "root";        // default XAMPP username
+$password = "";            // default XAMPP password is empty
+$database = "voting";         // make sure this DB exists in phpMyAdmin
 
 // Create database connection
 try {
-    $conn = new mysqli($servername, $username, $password, $dbname);
+    $conn = new mysqli($servername, $username, $password, $database);
     if ($conn->connect_error) {
         throw new Exception("Connection failed: " . $conn->connect_error);
     }
@@ -32,12 +32,14 @@ try {
     $query = "SELECT position, candidate_name, year_level, program, party FROM student_candidates";
     $result = $conn->query($query);
 
-    if ($result->num_rows > 0) {
+    if ($result && $result->num_rows > 0) {
         while ($row = $result->fetch_assoc()) {
             $candidates[$row['position']][] = $row; // Store candidates grouped by position
         }
     } else {
-        $candidates = []; // No candidates found
+        $candidates = []; // No candidates found or query failed
+        // Optional: Uncomment the next line for debugging
+        // echo "Query error: " . $conn->error;
     }
 } catch (Exception $e) {
     $error = "System Error: " . $e->getMessage();
@@ -128,7 +130,7 @@ try {
         <h2>Vote for Candidates</h2>
 
         <div class="buttons">
-            <a href="vote1.php" class="button">Home</a>
+            <a href="index.php" class="button">Home</a>
         </div>
 
         <?php 

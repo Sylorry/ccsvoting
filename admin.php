@@ -1,53 +1,16 @@
 <?php
-// Enable error reporting for debugging
-error_reporting(E_ALL);
-ini_set('display_errors', 1);
-
-// Database connection
-$servername = "127.0.0.1";
-$username = "u878574291_ccs1";
-$password = "CCSPseudocode01";
-$database = "u878574291_ccs";
+// Database connection for XAMPP (local development)
+$servername = "localhost"; // or 127.0.0.1
+$username = "root";        // default XAMPP username
+$password = "";            // default XAMPP password is empty
+$database = "voting";         // make sure this DB exists in phpMyAdmin
 
 $conn = new mysqli($servername, $username, $password, $database);
+
+// Check connection
 if ($conn->connect_error) {
     die("Connection failed: " . $conn->connect_error);
 }
-
-// Initialize variables
-$reset_status = false;
-$error_message = '';
-$success_message = '';
-
-// Process the reset after passkey validation
-if (isset($_POST['confirm_reset'])) {
-    // Clear votes from the votes table
-    if ($conn->query("Update student_candidates SET vote_tally = 0") === TRUE) {
-        // Reset the voting status for all students
-        if ($conn->query("UPDATE students SET has_voted = 0") === TRUE) {
-            $reset_status = true;
-            $success_message = "Voting has been reset successfully!";
-        } else {
-            $error_message = "Error resetting voting status: " . $conn->error;
-        }
-    } else {
-        $error_message = "Error clearing votes: " . $conn->error;
-    }
-}
-
-// Fetch the total count of student voters
-$total_voters_result = $conn->query("SELECT COUNT(*) AS total_voters FROM students");
-$total_voters = $total_voters_result->fetch_assoc()['total_voters'];
-
-// Fetch the total count of voters who have completed voting (has_voted = 1)
-$total_voted_result = $conn->query("SELECT COUNT(*) AS total_voted FROM students WHERE has_voted = 1");
-$total_voted = $total_voted_result->fetch_assoc()['total_voted'];
-
-// Calculate the percentage of students who have voted
-$percentage_voted = ($total_voters > 0) ? round(($total_voted / $total_voters) * 100, 2) : 0;
-
-// Close connection
-$conn->close();
 ?>
 
 <!DOCTYPE html>
@@ -427,24 +390,24 @@ $conn->close();
             <div class="stats-grid">
                 <div class="stat-card">
                     <div class="stat-title">Total Students</div>
-                    <div class="stat-value"><?php echo htmlspecialchars($total_voters); ?></div>
+                    <div class="stat-value"><?php echo isset($total_voters) ? htmlspecialchars($total_voters) : 0; ?></div>
                 </div>
                 
                 <div class="stat-card">
                     <div class="stat-title">Votes Cast</div>
-                    <div class="stat-value"><?php echo htmlspecialchars($total_voted); ?></div>
+                    <div class="stat-value"><?php echo isset($total_voted) ? htmlspecialchars($total_voted) : 0; ?></div>
                 </div>
                 
                 <div class="stat-card">
                     <div class="stat-title">Completion Rate</div>
-                    <div class="stat-value"><?php echo htmlspecialchars($percentage_voted); ?>%</div>
+                    <div class="stat-value"><?php echo isset($percentage_voted) ? htmlspecialchars($percentage_voted) : 0; ?>%</div>
                 </div>
             </div>
             
             <div class="progress-container">
                 <div class="progress-label">
                     <span>Voting Progress</span>
-                    <span><?php echo htmlspecialchars($total_voted); ?> / <?php echo htmlspecialchars($total_voters); ?></span>
+                    <span><?php echo isset($total_voted) ? htmlspecialchars($total_voted) : 0; ?> / <?php echo isset($total_voters) ? htmlspecialchars($total_voters) : 0; ?></span>
                 </div>
                 <div class="progress-bar">
                     <div class="progress-fill" style="width: <?php echo htmlspecialchars($percentage_voted); ?>%"></div>

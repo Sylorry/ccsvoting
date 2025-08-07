@@ -1,48 +1,48 @@
 <?php
-
-// Database connection
-$servername = "127.0.0.1";
-$username = "u878574291_ccs1";
-$password = "CCSPseudocode01";
-$database = "u878574291_ccs";
+// db.php - Database connection for XAMPP
+$servername = "localhost";
+$username = "root";
+$password = "";
+$database = "voting";
 
 $conn = new mysqli($servername, $username, $password, $database);
 
+// Check connection
 if ($conn->connect_error) {
     die("Connection failed: " . $conn->connect_error);
 }
 
-// Initialize an error message variable
+// Initialize error message variable
 $error_message = "";
 
 // Handling form submission
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    $student_id = mysqli_real_escape_string($conn, $_POST['student_id']);
+    if (isset($_POST['student_id'])) {
+        $student_id = mysqli_real_escape_string($conn, $_POST['student_id']);
 
-    // Check if the student ID exists in the "students" table
-    $query = "SELECT * FROM students WHERE student_id = '$student_id'";
-    $result = $conn->query($query);
+        // Check if the student ID exists
+        $query = "SELECT * FROM students WHERE student_id = '$student_id'";
+        $result = $conn->query($query);
 
-    if ($result->num_rows > 0) {
-        $student = $result->fetch_assoc();
+        if ($result && $result->num_rows > 0) {
+            $student = $result->fetch_assoc();
 
-        // Check if the student has already voted
-        if ($student['has_voted'] == 1) {
-            $error_message = "You have already voted. You cannot vote again.";
+            if ($student['has_voted'] == 1) {
+                $error_message = "❌ You have already voted.";
+            } else {
+                // Redirect to voting page
+                header("Location: voting.php?student_id=" . urlencode($student_id));
+                exit();
+            }
         } else {
-            // Redirect to voting.php after submission
-            header("Location: voting.php?student_id=$student_id");
-            exit();
+            $error_message = "❌ Student ID not found.";
         }
     } else {
-        // Set an error message if the student ID does not exist
-        $error_message = "Student ID does not exist. Please try again.";
+        $error_message = "❌ Please enter your Student ID.";
     }
-
-    // Close the database connection
-    $conn->close();
 }
 ?>
+
 
 <!DOCTYPE html>
 <html lang="en">
@@ -155,10 +155,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         }
     </style>
 </head>
-<body>
+<body>  
     <!-- Navigation Bar -->
     <div class="navbar">
-        <img src="ccsvoting/ccs.png" alt="Logo">
+        <img src="images/ccs.png" alt="Logo">
         <div class="logo">CCS PSEUDOCODE.COM SOCIETY</div>
         <div class="nav-buttons">
             <button class="nav-button" title="Add new candidates" onclick="window.location.href='add_candidates.php'">
@@ -189,7 +189,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             <?php endif; ?>
         </div>
         <div class="hero-illustration">
-            <img src="ccsvoting/123.png" alt="Illustration of voting system">
+        <img src="images/123.png" alt="Illustration of voting system">
         </div>
     </div>
 
