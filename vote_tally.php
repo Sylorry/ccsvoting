@@ -41,9 +41,14 @@ try {
 
     $result = $conn->query($query);
 
+    // Check if query was successful
+    if ($result === false) {
+        throw new Exception("Query failed: " . $conn->error);
+    }
+
     // Prevent duplicate candidates using an associative array
     $unique_candidates = [];
-    if ($result->num_rows > 0) {
+    if ($result && $result->num_rows > 0) {
         while ($row = $result->fetch_assoc()) {
             $key = $row['position'] . '-' . $row['candidate_name']; // Unique key
             if (!isset($unique_candidates[$key])) {
