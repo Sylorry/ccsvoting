@@ -38,23 +38,43 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         if ($stmt_check->num_rows > 0) { // If student exists
             $stmt_check->close();
 
-            // Insert candidate
-            $insert_query = "INSERT INTO student_candidates (student_id, candidate_name, program, year_level, position, party, vote_tally) 
-                             VALUES (?, ?, ?, ?, ?, ?, ?)";
+            // Check if student is already a candidate
+            $check_candidate_query = "SELECT student_id FROM student_candidates WHERE student_id = ?";
+            $stmt_candidate_check = $conn->prepare($check_candidate_query);
+            $stmt_candidate_check->bind_param("i", $student_id);
+            $stmt_candidate_check->execute();
+            $stmt_candidate_check->store_result();
 
-            $stmt = $conn->prepare($insert_query);
-            $vote_tally = 0; // Define before binding
-            $stmt->bind_param("isssssi", $student_id, $candidate_name, $program, $year_level, $position, $party, $vote_tally);
-
-            if ($stmt->execute()) {
-                $success_message = "Candidate added successfully!";
+            if ($stmt_candidate_check->num_rows > 0) {
+                // Student is already a candidate
+                $error_message = "Student ID $student_id is already registered as a candidate!";
+                $stmt_candidate_check->close();
             } else {
-                $error_message = "Error adding candidate: " . $stmt->error;
-            }
+                // Student is not yet a candidate, proceed with insertion
+                $stmt_candidate_check->close();
 
-            $stmt->close();
+                // Insert candidate
+                $insert_query = "INSERT INTO student_candidates (student_id, candidate_name, program, year_level, position, party, vote_tally) 
+                                 VALUES (?, ?, ?, ?, ?, ?, ?)";
+
+                $stmt = $conn->prepare($insert_query);
+                $vote_tally = 0; // Define before binding
+                $stmt->bind_param("isssssi", $student_id, $candidate_name, $program, $year_level, $position, $party, $vote_tally);
+
+                if ($stmt->execute()) {
+                    $success_message = "Candidate added successfully!";
+                } else {
+                    // Check for specific duplicate key error
+                    if (strpos($stmt->error, 'Duplicate entry') !== false) {
+                        $error_message = "Student ID $student_id is already registered as a candidate!";
+                    } else {
+                        $error_message = "Error adding candidate: " . $stmt->error;
+                    }
+                }
+                $stmt->close();
+            }
         } else {
-            $error_message = "Student ID does not exist.";
+            $error_message = "Student ID does not exist in the students table.";
         }
     } else {
         $error_message = "All fields are required!";
@@ -91,14 +111,14 @@ $conn->close();
             text-decoration: none;
             color: white;
             font-weight: bold;
-            transition: background-color 0.3s, color 0.3s; /* Add transition for smooth effect */
-            padding: 10px; /* Add padding for better click area */
-            border-radius: 5px; /* Optional: Add rounded corners */
+            transition: background-color 0.3s, color 0.3s;
+            padding: 10px;
+            border-radius: 5px;
         }
 
         .back-arrow:hover {
-            background-color: rgba(255, 255, 255, 0.2); /* Change background color on hover */
-            color: #ffcc00; /* Change text color on hover */
+            background-color: rgba(255, 255, 255, 0.2);
+            color: #ffcc00;
         }
 
         .container {
@@ -118,7 +138,7 @@ $conn->close();
         .form-group {
             margin-bottom: 15px;
             text-align: left;
-            padding: 0 10px; /* Add horizontal padding */
+            padding: 0 10px;
         }
 
         label {
@@ -126,11 +146,23 @@ $conn->close();
         }
 
         input, select {
-            width: calc(100% - 20px); /* Adjust width to account for padding */
+            width: calc(100% - 20px);
             padding: 10px;
             border: 1px solid #ddd;
             border-radius: 5px;
-            margin: 0 auto; /* Center the input/select */
+            margin: 0 auto;
+        }
+
+        input[readonly] {
+            background-color: #f5f5f5;
+            cursor: not-allowed;
+        }
+
+        .loading {
+            display: none;
+            color: #666;
+            font-size: 12px;
+            margin-top: 5px;
         }
 
         .btn {
@@ -142,8 +174,8 @@ $conn->close();
             cursor: pointer;
             font-size: 1rem;
             font-weight: bold;
-            width: calc(100% - 20px); /* Adjust button width */
-            margin-top: 15px; /* Add margin above the button */
+            width: calc(100% - 20px);
+            margin-top: 15px;
             transition: background-color 0.3s;
         }
 
@@ -170,10 +202,55 @@ $conn->close();
             }
         }
     </style>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script>
-        function toUpperCase(input) {
-            input.value = input.value.toUpperCase();
-        }
+    $(document).ready(function() {
+        // Function to handle student ID input
+        $('#student_id').on('input', function() {
+            var studentId = $(this).val();
+            
+            // Clear fields if ID is empty
+            if (studentId === '') {
+                $('#candidate_name').val('').prop('readonly', false);
+                $('#program').val('').prop('readonly', false);
+                $('#year_level').val('').prop('readonly', false);
+                return;
+            }
+            
+            // Only search if ID has at least 3 digits
+            if (studentId.length >= 3) {
+                $.ajax({
+                    url: 'get_student_details.php',
+                    type: 'GET',
+                    data: {student_id: studentId},
+                    dataType: 'json',
+                    success: function(response) {
+                        if (response.success && response.data) {
+                            // Auto-populate fields
+                            $('#candidate_name').val(response.data.full_name).prop('readonly', true);
+                            $('#program').val(response.data.program).prop('readonly', true);
+                            $('#year_level').val(response.data.year_level).prop('readonly', true);
+                        } else {
+                            // Clear fields if student not found
+                            $('#candidate_name').val('').prop('readonly', false);
+                            $('#program').val('').prop('readonly', false);
+                            $('#year_level').val('').prop('readonly', false);
+                        }
+                    },
+                    error: function() {
+                        console.log('Error fetching student details');
+                    }
+                });
+            }
+        });
+        
+        // Allow manual editing if needed
+        $('#candidate_name, #program, #year_level').on('focus', function() {
+            if ($(this).prop('readonly')) {
+                $(this).prop('readonly', false);
+            }
+        });
+    });
     </script>
 </head>
 <body>
@@ -192,53 +269,41 @@ $conn->close();
         <form method="POST">
             <div class="form-group">
                 <label for="student_id">Student ID:</label>
-                <input type="text" name="student_id" required>
+                <input type="text" name="student_id" id="student_id" required>
             </div>
 
             <div class="form-group">
                 <label for="candidate_name">Candidate Name:</label>
-                <input type="text" name="candidate_name" required oninput="toUpperCase(this)"> <!-- Convert to uppercase -->
+                <input type="text" name="candidate_name" id="candidate_name" required oninput="toUpperCase(this)">
             </div>
 
             <div class="form-group">
                 <label for="program">Program:</label>
-                <select name="program" required>
-                    <option value="">Select Program</option>
-                    <option value="BSIT">BSIT</option>
-                    <option value="BSCS">BSCS</option>
-                </select>
+                <input type="text" name="program" id="program" required>
             </div>
 
             <div class="form-group">
                 <label for="year_level">Year Level:</label>
-                <select name="year_level" required>
-                    <option value="">Select Year Level</option>
-                    <option value="1st Year">1st Year</option>
-                    <option value="2nd Year">2nd Year</option>
-                    <option value="3rd Year">3rd Year</option>
-                    <option value="4th Year">4th Year</option>
-                </select>
+                <input type="text" name="year_level" id="year_level" required>
             </div>
 
             <div class="form-group">
                 <label for="position">Position:</label>
                 <select name="position" required>
                     <option value="">Select Position</option>
-                    <option value="President">Department President</option>
-                    <option value="Vice President">Vice President</option>
-                    <option value="Secretary">Secretary</option>
-                    <option value="Treasurer">Treasurer</option>
-                    <option value="Auditor">Auditor</option>
-                    <option value="PIO">PIO</option>
-                    <option value="1ST YEAR CLASS MAYOR">1st Year Class Mayor</option>
-                    <option value="2ND YEAR CLASS MAYOR">2nd Year Class Mayor</option>
-                    <option value="3RD YEAR CLASS MAYOR">3rd Year Class Mayor</option>
+                    <option value="PRESIDENT">PRESIDENT</option>
+                    <option value="INTERNAL VICE-PRESIDENT">INTERNAL VICE-PRESIDENT</option>
+                    <option value="EXTERNAL VICE-PRESIDENT">EXTERNAL VICE-PRESIDENT</option>
+                    <option value="SECRETARY">SECRETARY</option>
+                    <option value="TREASURER">TREASURER</option>
+                    <option value="AUDITOR">AUDITOR</option>
+                    <option value="PUBLIC INFORMATION OFFICER">PUBLIC INFORMATION OFFICER</option>
                 </select>
             </div>
 
             <div class="form-group">
                 <label for="party">Party:</label>
-                <input type="text" name="party" required oninput="toUpperCase(this)"> <!-- Convert to uppercase -->
+                <input type="text" name="party" required oninput="toUpperCase(this)">
             </div>
 
             <button type="submit" class="btn">Add Candidate</button>

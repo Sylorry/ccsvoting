@@ -1,0 +1,406 @@
+<?php 
+ob_start(); // Start output buffering
+
+// Database Configuration
+$servername = "localhost";
+$username = "root";
+$password = ""; // Adjust this to match your database configuration
+$database = "ccs";
+
+// Establish Database Connection
+$conn = mysqli_connect($servername, $username, $password, $database);
+if (!$conn) {
+    die("Connection failed: " . mysqli_connect_error());
+}
+
+/** 
+ * Function to count total students or by specific filter
+ * @param mysqli $conn - Database connection
+ * @param string|null $program - Program filter (optional)
+ * @param string|null $year_level - Year level filter (optional)
+ * @return int - Total count
+ */
+function countStudents($conn, $program = null, $year_level = null) {
+    $sql = "SELECT COUNT(*) AS total FROM students WHERE 1=1";
+    $params = [];
+    $types = '';
+
+    // Apply filters if provided
+    if ($program) {
+        $sql .= " AND program = ?";
+        $params[] = $program;
+        $types .= 's';
+    }
+    if ($year_level) {
+        $sql .= " AND year_level = ?";
+        $params[] = $year_level;
+        $types .= 's';
+    }
+
+    // Execute Query
+    $stmt = mysqli_prepare($conn, $sql);
+    if ($params) {
+        mysqli_stmt_bind_param($stmt, $types, ...$params);
+    }
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $row = mysqli_fetch_assoc($result);
+
+    return (int) $row['total'];
+}
+
+/** 
+ * Function to filter student records by criteria
+ * @param mysqli $conn - Database connection
+ * @param string|null $program - Program filter (optional)
+ * @param string|null $year_level - Year level filter (optional)
+ * @return mysqli_result|bool - Query result or false
+ */
+function filterStudents($conn, $program = null, $year_level = null) {
+    $sql = "SELECT student_id, last_name, first_name, middle_initial, suffix, program, year_level 
+            FROM students WHERE 1=1";
+    $params = [];
+    $types = '';
+
+    // Apply filters if provided
+    if ($program) {
+        $sql .= " AND program = ?";
+        $params[] = $program;
+        $types .= 's';
+    }
+    if ($year_level) {
+        $sql .= " AND year_level = ?";
+        $params[] = $year_level;
+        $types .= 's';
+    }
+    $sql .= " ORDER BY last_name ASC";
+
+    // Execute Query
+    $stmt = mysqli_prepare($conn, $sql);
+    if ($params) {
+        mysqli_stmt_bind_param($stmt, $types, ...$params);
+    }
+    mysqli_stmt_execute($stmt);
+    return mysqli_stmt_get_result($stmt);
+}
+
+// Get the filtered student count
+$filtered_count = countStudents($conn, $_GET['program'] ?? null, $_GET['year_level'] ?? null);
+
+// Delete student record securely
+if (isset($_POST['delete'])) {
+    $student_id = $_POST['student_id'];
+    $delete_sql = "DELETE FROM students WHERE student_id = ?";
+    $stmt = mysqli_prepare($conn, $delete_sql);
+    mysqli_stmt_bind_param($stmt, 'i', $student_id);
+
+    // Execute deletion
+    if (mysqli_stmt_execute($stmt)) {
+        echo "<script>alert('Student deleted successfully!');</script>";
+    } else {
+        echo "<script>alert('Error deleting student: " . mysqli_error($conn) . "');</script>";
+    }
+    mysqli_stmt_close($stmt);
+}
+
+// Default display of all students
+$students = filterStudents($conn);
+
+// Total student count
+$total_students = countStudents($conn);
+
+// Dynamic count by program and year level
+$student_counts = [];
+$program_year_combinations = mysqli_query($conn, "SELECT DISTINCT program, year_level FROM students ORDER BY program, year_level");
+if ($program_year_combinations) {
+    while ($row = mysqli_fetch_assoc($program_year_combinations)) {
+        $student_counts[$row['program']][$row['year_level']] = countStudents($conn, $row['program'], $row['year_level']);
+    }
+}
+
+$current_date_time = date('F d, Y h:i A');
+?>
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Records</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <style>
+        /* General Styles */
+        /* (CSS styles remain the same) */
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <a href="records.php"><i class="fas fa-users"></i> Student Records</a>
+        <a href="logout.php"><i class="fas fa-sign-out-alt"></i> Log Out</a>
+    </div>
+
+    <div class="content">
+        <!-- Filtered Students Count -->
+        <div class="filtered-students-count">
+            Filtered Students: <?php echo $filtered_count; ?>
+        </div>
+
+        <nav>
+            <div class="logo">PSEUDOCODE.COM SOCIETY</div>
+            <div class="date-time"><?php echo $current_date_time; ?></div>
+        </nav>
+
+        <div class="header-container">
+            <h1>Students' Profile</h1>
+        </div>
+
+        <div class="total-students">
+            Total Students: <?php echo $total_students; ?>
+        </div>
+
+        <!-- Filter Form -->
+        <div class="filter-container">
+            <form method="get" action="">
+                <label for="program">Program:</label>
+                <select name="program" id="program">
+                    <option value="">All</option>
+                    <?php
+         // Populate unique program options
+                    $programs = mysqli_query($conn, "SELECT DISTINCT program FROM students ORDER BY program");
+                    while ($row = mysqli_fetch_assoc($programs)) {
+                        $selected = (isset($_GET['program']) && $_GET['program'] === $row['program']) ? "selected" : "";
+                        echo "<option value='" . htmlspecialchars($row['program']) . "' $selected>" . htmlspecialchars($row['program']) . "</option>";
+                    }
+                    ?>
+                </select>
+
+                <label for="year_level">Year Level:</label>
+                <select name="year_level" id="year_level">
+                    <option value="">All</option>
+                    <?php
+        // Populate unique year level options
+                    $year_levels = mysqli_query($conn, "SELECT DISTINCT year_level FROM students ORDER BY year_level");
+                    while ($row = mysqli_fetch_assoc($year_levels)) {
+                        $selected = (isset($_GET['year_level']) && $_GET['year_level'] === $row['year_level']) ? "selected" : "";
+                        echo "<option value='" . htmlspecialchars($row['year_level']) . "' $selected>" . htmlspecialchars($row['year_level']) . "</option>";
+                    }
+                    ?>
+                </select>
+                <button type="submit" class="btn btn-green">Filter</button>
+            </form>
+        </div>
+
+        <!-- Students Table -->
+        <table>
+            <thead>
+                <tr>
+                    <th>Student ID</th>
+                    <th>Last Name</th>
+                    <th>First Name</th>
+                    <th>Middle Initial</th>
+                    <th>Suffix</th>
+                    <th>Program</th>
+                    <th>Year Level</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php
+                // Apply filters and display students
+                $filtered_students = filterStudents($conn, $_GET['program'] ?? null, $_GET['year_level'] ?? null);
+                while ($row = mysqli_fetch_assoc($filtered_students)): ?>
+                    <tr>
+                        <td><?php echo $row['student_id']; ?></td>
+                        <td><?php echo htmlspecialchars($row['last_name']); ?></td>
+                        <td><?php echo htmlspecialchars($row['first_name']); ?></td>
+                        <td><?php echo htmlspecialchars($row['middle_initial']); ?></td>
+                        <td><?php echo htmlspecialchars($row['suffix']); ?></td>
+                        <td><?php echo htmlspecialchars($row['program']); ?></td>
+                        <td><?php echo htmlspecialchars($row['year_level']); ?></td>
+                        <td>
+                            <a href="details.php?id=<?php echo $row['student_id']; ?>" class="btn btn-green">Details</a>
+                            <a href="edit.php?id=<?php echo $row['student_id']; ?>" class="btn btn-green">Edit</a>
+                            <form method="post" style="display:inline;">
+                                <input type="hidden" name="student_id" value="<?php echo $row['student_id']; ?>">
+                                <button type="submit" name="delete" class="btn btn-green" onclick="return confirm('Are you sure?');">Delete</button>
+                            </form>
+                        </td>
+                    </tr>
+                <?php endwhile; ?>
+            </tbody>
+        </table>
+    </div>
+</body>
+</html>
+
+<?php mysqli_close($conn); ?>
+
+
+
+
+<style>
+
+
+/* General Styles */
+body, html {
+    font-family: 'Poppins', sans-serif;
+    margin: 0;
+    padding: 0;
+    color: #006e2e;
+}
+
+nav {
+    background: linear-gradient(135deg, #046d30, #ffffff);
+    padding: 15px 30px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 3px 5px rgba(0, 0, 0, 0.1);
+}
+
+nav .logo {
+    font-size: 2rem;
+    font-weight: bold;
+    color: white;
+}
+
+nav .date-time {
+    font-size: 25px;
+    font-weight: bold;
+}
+
+.sidebar {
+    width: 250px;
+    background-color: #006e2e;
+    color: white;
+    height: 100vh;
+    position: fixed;
+    top: 0;
+    left: 0;
+    padding: 20px 0;
+    box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
+}
+
+.sidebar a {
+    color: white;
+    padding: 15px 25px;
+    display: block;
+    text-decoration: none;
+    font-size: 16px;
+    font-weight: bold;
+}
+
+.sidebar a:hover {
+    background-color: #004d1a;
+    text-decoration: none;
+}
+
+.content {
+    margin-left: 250px;
+    padding: 20px;
+}
+
+.header-container h1 {
+    font-size: 45px;
+    text-align: center;
+    font-weight: bold; /* Ensures the title is prominent */
+    margin: 20px 0; /* Adds space around the title */
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 20px 0;
+    text-align: left;
+}
+
+th, td {
+    padding: 10px;
+    border: 1px solid #ddd;
+}
+
+th {
+    background-color: #006e2e;
+    color: white;
+}
+
+tr:hover {
+    background-color: #f2f2f2;
+}
+
+.btn {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 5px;
+    font-size: 16px;
+    cursor: pointer;
+}
+
+.btn-green {
+    background-color: #006e2e;
+    color: white;
+}
+
+.btn-green:hover {
+    background-color: #004d1a;
+}
+
+.search-container input {
+    padding: 10px;
+    width: 100%;
+    margin: 20px 0;
+    border: 2px solid #ddd;
+    border-radius: 5px;
+}
+
+.total-students {
+    font-size: 25px;
+    font-weight: bold;
+    margin-bottom: 20px;
+}
+
+.h1  {
+    font-size: 35px;
+    font-weight: bold
+   
+
+
+}
+
+
+.total-filtered-container {
+    display: flex; /* Use flexbox for side-by-side layout */
+    justify-content: space-between; /* Add space between items */
+    align-items: center; /* Align vertically */
+    margin-bottom: 0px; /* Add some spacing below */
+}
+
+.total-students,
+.filtered-students-count {
+    font-size: 24px; /* Adjust font size */
+    font-weight: bold; /* Make the text bold */
+    color: #004d1a; /* Match the theme color */
+    margin: 50 10px; /* Add horizontal spacing */
+}
+
+tbody tr:hover {
+    background-color: #e6ffe6; /* Light green shade */
+    cursor: pointer;
+}
+
+@media (max-width: 768px) {
+    .sidebar {
+        position: static;
+        width: 100%;
+    }
+    .content {
+        margin-left: 0;
+    }
+}
+
+
+
+
+
+</style>
