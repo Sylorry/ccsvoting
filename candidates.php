@@ -16,16 +16,13 @@ try {
 
     // Define the desired order of positions
     $position_order = [
-        "1st Year Representative",
-        "President",
-        "Vice President",
-        "Secretary",
-        "Treasurer",
-        "Auditor",
-        "PIO",
-        "1ST YEAR CLASS MAYOR",
-        "2ND YEAR CLASS MAYOR",
-        "3RD YEAR CLASS MAYOR"
+        "PRESIDENT",
+        "INTERNAL VICE-PRESIDENT",
+        "EXTERNAL VICE-PRESIDENT",
+        "SECRETARY",
+        "TREASURER",
+        "AUDITOR",
+        "PUBLIC INFORMATION OFFICER"
     ];
 
     // Fetch candidates from the student_candidates table

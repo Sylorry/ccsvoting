@@ -1,4 +1,4 @@
-<?php
+    <?php
 // db.php - Database connection for XAMPP
 $servername = "localhost";
 $username = "root";
@@ -50,6 +50,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CCS Online Voting System</title>
+    <link rel="icon" type="image/png" href="images/ccs.png">
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <style>
@@ -58,7 +59,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             font-family: 'Roboto', sans-serif;
             margin: 0;
             padding: 0;
-            background: linear-gradient(135deg, #43a047, #66bb6a); /* Green gradient */
+            background-image: url('images/Background.png');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            background-attachment: fixed;
             color: white;
             height: 100vh;
             display: flex;
@@ -71,7 +76,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             justify-content: space-between;
             padding: 20px 40px;
             align-items: center;
-            background: linear-gradient(135deg, #041602, #1d7f13);
+            background-color: #1E5128;
             box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
         }
 
@@ -158,8 +163,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 <body>  
     <!-- Navigation Bar -->
     <div class="navbar">
-        <img src="images/ccs.png" alt="Logo">
-        <div class="logo">CCS PSEUDOCODE.COM SOCIETY</div>
+        <div class="logo">CCS PSEUDOCODE.COM SOCIETY VOTING SYSTEM</div>
         <div class="nav-buttons">
             <button class="nav-button" title="Add new candidates" onclick="window.location.href='add_candidates.php'">
                 <i class="fas fa-user-plus"></i> Add Candidates
@@ -182,14 +186,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     <!-- Hero Section -->
     <div class="hero">
         <div class="hero-content">
-            <h1>Online Voting System</h1>
-            <p>"Empowering the CCS department with secure and seamless online voting!"</p>
             <?php if ($error_message): ?>
                 <div class="error-message"><?php echo $error_message; ?></div>
             <?php endif; ?>
         </div>
         <div class="hero-illustration">
-        <img src="images/123.png" alt="Illustration of voting system">
         </div>
     </div>
 

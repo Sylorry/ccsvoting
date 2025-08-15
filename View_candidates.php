@@ -16,15 +16,13 @@ try {
 
     // Define the desired order of positions
     $position_order = [
-        "President",
-        "Vice President",
-        "Secretary",
-        "Treasurer",
-        "Auditor",
-        "PRO",
-        "1st Year Representative",
-        "2nd Year Representative",
-        "3rd Year Representative"
+        "PRESIDENT",
+        "INTERNAL VICE-PRESIDENT",
+        "EXTERNAL VICE-PRESIDENT",
+        "SECRETARY",
+        "TREASURER",
+        "AUDITOR",
+        "PUBLIC INFORMATION OFFICER"
     ];
 
     // Fetch candidates from the student_candidates table with all required fields

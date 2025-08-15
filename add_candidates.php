@@ -1,9 +1,9 @@
 <?php
 // Database connection
-$servername = "localhost"; // or 127.0.0.1
-$username = "root";        // default XAMPP username
-$password = "";            // default XAMPP password is empty
-$database = "voting";         // make sure this DB exists in phpMyAdmin
+$servername = "localhost"; 
+$username = "root";        
+$password = "";           
+$database = "voting";        
 
 $conn = new mysqli($servername, $username, $password, $database);
 
